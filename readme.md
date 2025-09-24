@@ -1,4 +1,4 @@
-## OSU Songmapper – Anleitung
+## OSO Songmapper – Anleitung
 
 Diese App generiert aus einer MP3-Datei eine osu!-ähnliche Map und speichert sie als JSON (DataTable-Format).
 
