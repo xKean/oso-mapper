@@ -2,6 +2,8 @@ name: release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -17,29 +19,63 @@ on:
 
 jobs:
   build_release:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     permissions:
       contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET 9
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '9.0.x'
 
+      - name: Bestimme oder erstelle Release-Tag
+        id: tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/* ]]; then
+            # Bereits ein Tag-Push
+            echo "RELEASE_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+            echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TAG="v${{ inputs.version }}"
+            echo "RELEASE_TAG=${TAG}" >> $GITHUB_ENV
+            echo "tag=${TAG}" >> $GITHUB_OUTPUT
+          else
+            # Push nach main → Patch-Version automatisch inkrementieren
+            latest=$(git tag --list 'v*' | sort -V | tail -n1)
+            if [[ -z "$latest" ]]; then
+              next="v0.1.0"
+            else
+              ver=${latest#v}
+              IFS='.' read -r major minor patch <<<"$ver"
+              patch=$((patch+1))
+              next="v${major}.${minor}.${patch}"
+            fi
+            git config user.name "github-actions"
+            git config user.email "github-actions@github.com"
+            git tag "$next"
+            git push origin "$next"
+            echo "RELEASE_TAG=$next" >> $GITHUB_ENV
+            echo "tag=$next" >> $GITHUB_OUTPUT
+          fi
+
       - name: Restore
         run: dotnet restore OsuMapGenerator.csproj
 
       - name: Publish (win-x64 single-file, self-contained)
         run: |
-          dotnet publish -c Release -r win-x64 --self-contained true \
-            -p:PublishSingleFile=true \
-            -p:IncludeAllContentForSelfExtract=true \
-            -p:IncludeNativeLibrariesForSelfExtract=true \
-            -p:EnableCompressionInSingleFile=true \
-            -p:PublishTrimmed=false \
+          dotnet publish -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeAllContentForSelfExtract=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:EnableCompressionInSingleFile=true `
+            -p:PublishTrimmed=false `
             OsuMapGenerator.csproj
 
       - name: Upload Build Artifact
@@ -48,21 +84,12 @@ jobs:
           name: OsuMapGenerator-win-x64
           path: bin/Release/net9.0-windows/win-x64/publish/*
 
-      - name: Create GitHub Release (tag push)
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            bin/Release/net9.0-windows/win-x64/publish/OsuMapGenerator.exe
-          prerelease: false
-
-      - name: Create GitHub Release (manual)
-        if: github.event_name == 'workflow_dispatch'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ inputs.version }}
-          name: v${{ inputs.version }}
-          prerelease: ${{ inputs.prerelease }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           files: |
             bin/Release/net9.0-windows/win-x64/publish/OsuMapGenerator.exe
 
