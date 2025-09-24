@@ -1,0 +1,68 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (z. B. 1.2.3)'
+        required: true
+      prerelease:
+        description: 'Als Pre-Release markieren'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  build_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore OsuMapGenerator.csproj
+
+      - name: Publish (win-x64 single-file, self-contained)
+        run: |
+          dotnet publish -c Release -r win-x64 --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:IncludeAllContentForSelfExtract=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:EnableCompressionInSingleFile=true \
+            -p:PublishTrimmed=false \
+            OsuMapGenerator.csproj
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OsuMapGenerator-win-x64
+          path: bin/Release/net9.0-windows/win-x64/publish/*
+
+      - name: Create GitHub Release (tag push)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bin/Release/net9.0-windows/win-x64/publish/OsuMapGenerator.exe
+          prerelease: false
+
+      - name: Create GitHub Release (manual)
+        if: github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
+          prerelease: ${{ inputs.prerelease }}
+          files: |
+            bin/Release/net9.0-windows/win-x64/publish/OsuMapGenerator.exe
+
