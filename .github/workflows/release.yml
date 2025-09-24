@@ -78,10 +78,18 @@ jobs:
             -p:PublishTrimmed=false `
             OsuMapGenerator.csproj
 
+      - name: Rename output to oso-songmapper.exe
+        shell: pwsh
+        run: |
+          $pub = "bin/Release/net9.0-windows/win-x64/publish"
+          if (Test-Path "$pub/OsuMapGenerator.exe") {
+            Rename-Item "$pub/OsuMapGenerator.exe" "oso-songmapper.exe" -Force
+          }
+
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OsuMapGenerator-win-x64
+          name: oso-songmapper-win-x64
           path: bin/Release/net9.0-windows/win-x64/publish/*
 
       - name: Create GitHub Release
@@ -91,5 +99,5 @@ jobs:
           name: ${{ env.RELEASE_TAG }}
           prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           files: |
-            bin/Release/net9.0-windows/win-x64/publish/OsuMapGenerator.exe
+            bin/Release/net9.0-windows/win-x64/publish/oso-songmapper.exe
 
