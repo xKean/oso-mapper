@@ -84,6 +84,3 @@ Jedes Preset setzt sinnvolle Startwerte (NPM, Sensitivität, min. Zeit, min. Nod
 - Kein Ton/Analysefehler: Prüfe, ob die MP3‑Datei existiert und nicht geschützt ist.
 - Unerwartete Muster/Abstände: Passe NPM, `MinTimeBetweenNotes` und `MinNodeDistancePx` an.
 
-### 7) Lizenz / Kontakt
-Interne Testanwendung. Falls du Anpassungen brauchst, melde dich.
-
